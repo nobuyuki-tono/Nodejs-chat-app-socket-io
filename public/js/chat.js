@@ -1,25 +1,75 @@
 const socket = io();
 
-socket.on("message", welcomeMsg => {
-  console.log(welcomeMsg);
+// elements
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+const button = document.getElementById("form-btn");
+const sendLocationBtn = document.getElementById("send-location-btn");
+const messages = document.getElementById("messages");
+
+// Templates
+const messageTemplate = document.getElementById("message-template").innerHTML;
+const locationMessageTemplate = document.getElementById(
+  "location-message-template"
+).innerHTML;
+
+socket.on("message", msg => {
+  console.log(msg);
+  const html = Mustache.render(messageTemplate, {
+    message: msg
+  });
+  messages.insertAdjacentHTML("beforeend", html);
 });
 
-const form = document.getElementById("form");
+socket.on("locationMessage", url => {
+  console.log("Location", url);
+  const html = Mustache.render(locationMessageTemplate, {
+    url: url
+  });
+  messages.insertAdjacentHTML("beforeend", html);
+});
 
 form.addEventListener("submit", e => {
   e.preventDefault();
+
+  // disable
+  button.setAttribute("disabled", "disabled");
+
   const msg = e.target.elements.message.value;
 
-  socket.emit("sendMsg", msg);
+  socket.emit("sendMsg", msg, error => {
+    //enable
+    button.removeAttribute("disabled");
+    input.value = "";
+    input.focus();
+
+    if (error) {
+      return console.log(error);
+    }
+
+    console.log("Message delivered");
+  });
 });
 
-document.querySelector("#send-location-btn").addEventListener("click", () => {
+sendLocationBtn.addEventListener("click", () => {
   if (!navigator.geolocation) {
     return alert("Geolocation is not supoorted by your browser");
   }
 
+  sendLocationBtn.setAttribute("disabled", "disabled");
+
   navigator.geolocation.getCurrentPosition(position => {
-    console.log(position);
+    socket.emit(
+      "sendLocation",
+      {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+      },
+      locationMsg => {
+        sendLocationBtn.removeAttribute("disabled");
+        console.log("Location shared");
+      }
+    );
   });
 });
 
